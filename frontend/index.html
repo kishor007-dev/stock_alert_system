@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Stock Alerts</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="https://cdn-icons-png.flaticon.com/512/2933/2933116.png" alt="Logo" class="logo">
+            <h1>Stock Alerts</h1>
+        </div>
+        <p> Get real-time alerts!!</p>
+        
+        <div class="hero-stats">
+            <!-- <div>3,281 Assets Tracked</div> -->
+            <div>99.98% Uptime</div>
+            <div>43ms Response</div>
+        </div>
+    </header>
+
+    <div class="ticker-wrap">
+        <div class="ticker">
+            NVDA ▲ 4.8% • AAPL ▲ 2.1% • TSLA ▼ 1.2% • MSFT ▲ 0.8% • RELIANCE ▲ 1.7% • TCS ▲ 0.9% • AMZN ▲ 1.4% • META ▼ 0.5% • GOOGL ▲ 2.3%
+        </div>
+    </div>
+
+    <main>
+        <div id="notification-setup" class="glass-card" style="max-width: 500px; margin: 40px auto; text-align: center;">
+            <p style="margin-bottom: 20px;">System requires push notification access to deliver real-time data.</p>
+            <button id="enable-notifications" class="create-btn">Initialize System</button>
+        </div>
+
+        <div id="app-area" class="hidden">
+            <div class="dashboard">
+                <div class="glass-card">
+                    <h2 style="margin-bottom: 15px;">Configure Alert</h2>
+                    
+                    <div class="search-container">
+                        <input type="text" id="stock-search" placeholder="Search stock symbol (e.g. AAPL)..." autocomplete="off">
+                        <div id="search-results" class="dropdown hidden"></div>
+                    </div>
+
+                    <select id="alert-type">
+                        <option id="v1" value="condition">Price Target Condition</option>
+                        <option id="v2" value="interval">Recurring Timer Update</option>
+                    </select>
+
+                    <div id="interval-inputs" class="row hidden">
+                        <input type="number" id="interval-minutes" placeholder="Alert me every X minutes" min="1">
+                    </div>
+
+                    <div id="conditional-inputs" class="row">
+                        <select id="condition">
+                            <option value=">">Greater Than (>)</option>
+                            <option value="<">Less Than (<)</option>
+                        </select>
+                        <input type="number" id="target-price" placeholder="Target Price ($)" step="0.01">
+                    </div>
+
+                    <button id="create-alert" class="create-btn">Deploy Alert</button>
+                    <p id="form-message" class="message"></p>
+                </div>
+
+                <div class="glass-card globe-card">
+                    <div class="glow-circle" id="threejs-container">
+                        </div>
+                    <div class="market-data">
+                        <h3 style="margin-bottom: 15px;">System Status</h3>
+                        <div>Network: <span>Secure</span></div>
+                        <div>Monitoring: <span>Real-time</span></div>
+                        <div>Latency: <span>< 100ms</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alerts-section">
+                <h2>Active Monitored Assets</h2>
+                <div id="alerts-list" class="alerts-grid">
+                    <p class="text-muted" style="color: #b0b0b0;">Awaiting deployment...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script src="app.js"></script>
+</body>
+</html>
