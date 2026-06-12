@@ -88,3 +88,10 @@ connectDB()
     console.error("❌ MongoDB Connection Error:", err);
     process.exit(1);
   });
+
+app.get('/', (req, res) => {
+    res.json({
+        status: "ok",
+        message: "Stock Alert Backend is running 🚀"
+    });
+});
