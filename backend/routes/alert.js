@@ -133,7 +133,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const Alert = require('../models/Alert');
+const Alert = require('../models/alert');
 
 // Create Alert
 router.post('/', async (req, res) => {
