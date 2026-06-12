@@ -91,7 +91,7 @@
 // module.exports = { startWorker };
 const axios = require('axios');
 const admin = require('firebase-admin');
-const Alert = require('./models/Alert');
+const Alert = require('./models/alert');
 
 const processAlerts = async () => {
     console.log(`[Worker] Running stock check at ${new Date().toISOString()}`);
