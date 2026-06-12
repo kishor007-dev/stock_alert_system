@@ -98,36 +98,108 @@ const admin = require("firebase-admin");
 const Alert = require("./models/alert");
 const NodeCache = require("node-cache");
 
-const cache = new NodeCache({ stdTTL: 60 }); // 1 min cache
+const YahooFinance = require("yahoo-finance2").default;
+const yahooFinance = new YahooFinance({
+    suppressNotices:["yahooSurvey"]
+});
 
-const API_KEY = process.env.FINNHUB_API_KEY;
+const cache = new NodeCache({ stdTTL: 60 });
+
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
 // sleep helper
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // =========================
-// GET STOCK PRICE (FINNHUB)
+// FINNHUB (US STOCKS)
 // =========================
-async function getStockPrice(symbol) {
-    const cached = cache.get(symbol);
-    if (cached) return cached;
-
+async function getFinnhubPrice(symbol) {
     try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${API_KEY}`;
+        const url =
+            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
 
-        const res = await axios.get(url, { timeout: 8000 });
+        const res = await axios.get(url, {
+            timeout: 8000
+        });
 
-        const price = res.data?.c; // current price
+        const price = res.data?.c;
 
-        if (!price) return null;
+        if (price == null) return null;
 
-        cache.set(symbol, price);
-        return price;
+        return Number(price);
 
     } catch (err) {
         console.error(`❌ Finnhub error ${symbol}:`, err.message);
         return null;
     }
+}
+
+// =========================
+// YAHOO (INDIAN STOCKS)
+// =========================
+async function getYahooPrice(symbol) {
+    try {
+
+        const quote = await yahooFinance.quote(symbol);
+
+        const price = quote?.regularMarketPrice;
+
+        if (price == null) {
+            console.log(`❌ No Yahoo price for ${symbol}`);
+            return null;
+        }
+
+        return Number(price);
+
+    } catch (err) {
+        console.error(`❌ Yahoo error ${symbol}:`, err.message);
+        return null;
+    }
+}
+
+// =========================
+// HYBRID PRICE FETCHER
+// =========================
+async function getStockPrice(symbol) {
+
+    const cached = cache.get(symbol);
+
+    if (cached) {
+        return cached;
+    }
+
+    let price = null;
+
+    // Indian Stocks
+    if (
+        symbol.endsWith(".NS") ||
+        symbol.endsWith(".BO")
+    ) {
+
+        console.log(`📈 Yahoo -> ${symbol}`);
+
+        price = await getYahooPrice(symbol);
+    }
+
+    // US Stocks
+    else {
+
+        console.log(`📈 Finnhub -> ${symbol}`);
+
+        price = await getFinnhubPrice(symbol);
+
+        // fallback
+        if (price == null) {
+            console.log(`⚠️ Finnhub failed. Trying Yahoo -> ${symbol}`);
+            price = await getYahooPrice(symbol);
+        }
+    }
+
+    if (price != null) {
+        cache.set(symbol, price);
+    }
+
+    return price;
 }
 
 // =========================
@@ -221,9 +293,23 @@ const processAlerts = async () => {
 // =========================
 // START
 // =========================
+let isRunning = false;
+
+const safeProcessAlerts = async () => {
+    if (isRunning) return;
+
+    isRunning = true;
+
+    try {
+        await processAlerts();
+    } finally {
+        isRunning = false;
+    }
+};
+
 const startWorker = () => {
-    setInterval(processAlerts, 60 * 1000); // 1 min safe
-    processAlerts();
+    setInterval(safeProcessAlerts, 60 * 1000);
+    safeProcessAlerts();
 };
 
 module.exports = { startWorker };
