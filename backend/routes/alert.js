@@ -188,12 +188,30 @@ router.delete('/:id', async (req, res) => {
 router.get('/search', async (req, res) => {
     try {
         const { q } = req.query;
+
         if (!q) return res.json([]);
+
         const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${q}&quotesCount=5`;
-        const response = await axios.get(url);
-        res.json(response.data.quotes || []);
+
+        const response = await axios.get(url, {
+            headers: {
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "application/json"
+            },
+            timeout: 5000
+        });
+
+        const data = response?.data;
+
+        if (!data || !data.quotes) {
+            return res.json([]);
+        }
+
+        return res.json(data.quotes);
+
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch stocks' });
+        console.error("SEARCH ERROR:", error.message);
+        return res.json([]);
     }
 });
 
