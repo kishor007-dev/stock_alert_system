@@ -57,8 +57,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-connectDB();
-
 try {
     admin.initializeApp({
     credential: admin.credential.cert({
@@ -73,9 +71,20 @@ console.log('✅ Firebase Admin Initialized');
     console.error('❌ Firebase Admin Error. Ensure config/firebase-service-account.json exists.');
     process.exit(1);
 }
+connectDB()
+  .then(() => {
+    console.log("✅ MongoDB Connected");
 
-app.use('/api/alerts', alertRoutes);
-startWorker();
+    app.use('/api/alerts', alertRoutes);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(` Server running on port ${PORT}`));
+    startWorker(); // ONLY after DB is ready
+
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err);
+    process.exit(1);
+  });
