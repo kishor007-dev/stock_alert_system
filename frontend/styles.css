@@ -165,5 +165,4 @@ font-family:cursive;
   .alerts-grid { grid-template-columns: 1fr; }
   #toast-container { left: 20px; right: 20px; bottom: 20px; }
   .toast { min-width: 0; width: 100%; }
-  option{width: 50%;}
 }

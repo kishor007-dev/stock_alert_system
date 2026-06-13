@@ -99,22 +99,25 @@ const Alert = require("./models/alert");
 const NodeCache = require("node-cache");
 
 const YahooFinance = require("yahoo-finance2").default;
+
 const yahooFinance = new YahooFinance({
-    suppressNotices:["yahooSurvey"]
+    suppressNotices: ["yahooSurvey"]
+});
+// Sleep helper
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const cache = new NodeCache({
+    stdTTL: 300 // 5 minutes
 });
 
-const cache = new NodeCache({ stdTTL: 60 });
-
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
-
-// sleep helper
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // =========================
 // FINNHUB (US STOCKS)
 // =========================
 async function getFinnhubPrice(symbol) {
     try {
+
         const url =
             `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
 
@@ -124,12 +127,19 @@ async function getFinnhubPrice(symbol) {
 
         const price = res.data?.c;
 
-        if (price == null) return null;
+        if (price == null) {
+            return null;
+        }
 
         return Number(price);
 
     } catch (err) {
-        console.error(`❌ Finnhub error ${symbol}:`, err.message);
+
+        console.error(
+            `❌ Finnhub error ${symbol}:`,
+            err.message
+        );
+
         return null;
     }
 }
@@ -138,21 +148,33 @@ async function getFinnhubPrice(symbol) {
 // YAHOO (INDIAN STOCKS)
 // =========================
 async function getYahooPrice(symbol) {
+
     try {
 
-        const quote = await yahooFinance.quote(symbol);
+        const quote =
+            await yahooFinance.quote(symbol);
 
-        const price = quote?.regularMarketPrice;
+        const price =
+            quote?.regularMarketPrice;
 
         if (price == null) {
-            console.log(`❌ No Yahoo price for ${symbol}`);
+
+            console.log(
+                `❌ No Yahoo price for ${symbol}`
+            );
+
             return null;
         }
 
         return Number(price);
 
     } catch (err) {
-        console.error(`❌ Yahoo error ${symbol}:`, err.message);
+
+        console.error(
+            `❌ Yahoo error ${symbol}:`,
+            err.message
+        );
+
         return null;
     }
 }
@@ -170,27 +192,31 @@ async function getStockPrice(symbol) {
 
     let price = null;
 
-    // Indian Stocks
+    // INDIA
     if (
         symbol.endsWith(".NS") ||
         symbol.endsWith(".BO")
     ) {
 
-        console.log(`📈 Yahoo -> ${symbol}`);
+        console.log(`🇮🇳 Yahoo -> ${symbol}`);
 
         price = await getYahooPrice(symbol);
     }
 
-    // US Stocks
+    // USA
     else {
 
-        console.log(`📈 Finnhub -> ${symbol}`);
+        console.log(`🇺🇸 Finnhub -> ${symbol}`);
 
         price = await getFinnhubPrice(symbol);
 
-        // fallback
+        // Fallback to Yahoo
         if (price == null) {
-            console.log(`⚠️ Finnhub failed. Trying Yahoo -> ${symbol}`);
+
+            console.log(
+                `⚠️ Finnhub failed. Yahoo fallback -> ${symbol}`
+            );
+
             price = await getYahooPrice(symbol);
         }
     }

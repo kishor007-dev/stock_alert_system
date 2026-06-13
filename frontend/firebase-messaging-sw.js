@@ -34,7 +34,7 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-comp
 // TODO: Replace with your actual config!
 const firebaseConfig = {
      apiKey: "AIzaSyBAW4QPXcZtFcPnNyduVzhfI4cHyHNR6FM",
-      authDomain: "stock-analyzer-001-334e6.firebaseapp.com",
+     authDomain: "stock-analyzer-001-334e6.firebaseapp.com",
      projectId: "stock-analyzer-001-334e6",
      storageBucket: "stock-analyzer-001-334e6.firebasestorage.app",
      messagingSenderId: "120181856561",
