@@ -95,67 +95,32 @@
 // module.exports = { startWorker };
 const admin = require("firebase-admin");
 const Alert = require("./models/alert");
-const axios = require("axios");
+const { getPrice } = require("./services/priceService");
 
-const { getUpstoxPrice } = require("./services/upstoxPrice");
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// =========================
-// 🇺🇸 FINNHUB (US STOCKS)
-// =========================
-async function getFinnhubPrice(symbol) {
-    try {
-        const res = await axios.get(
-            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_API_KEY}`
-        );
-
-        return res.data?.c || null;
-    } catch (err) {
-        console.log("Finnhub error:", err.message);
-        return null;
-    }
-}
-
-// =========================
-// 🌍 PRICE FETCHER (ONLY REPLACEMENT LAYER)
-// =========================
-async function getPrice(alert) {
-
-    // 🇮🇳 INDIA → Upstox
-    if (alert.instrumentKey) {
-        return await getUpstoxPrice(alert.instrumentKey);
-    }
-
-    // 🇺🇸 USA → Finnhub
-    if (alert.symbol) {
-        return await getFinnhubPrice(alert.symbol);
-    }
-
-    return null;
-}
-
-// =========================
-// WORKER (UNCHANGED LOGIC)
-// =========================
 const processAlerts = async () => {
     console.log(`[Worker] Running at ${new Date().toISOString()}`);
 
     try {
+
         const alerts = await Alert.find({ triggered: false });
 
         if (!alerts.length) return;
 
         const grouped = {};
 
-        // group by symbol (KEEP ORIGINAL BEHAVIOUR)
+        // group by symbol (KEEP ORIGINAL BEHAVIOR)
         for (const a of alerts) {
-            const key = a.symbol;
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(a);
+            if (!grouped[a.symbol]) grouped[a.symbol] = [];
+            grouped[a.symbol].push(a);
         }
 
         const now = Date.now();
 
         for (const symbol of Object.keys(grouped)) {
+
+            await sleep(500);
 
             const sampleAlert = grouped[symbol][0];
 
@@ -167,9 +132,9 @@ const processAlerts = async () => {
 
                 let shouldSend = false;
 
-                // =========================
-                // CONDITION ALERT (UNCHANGED)
-                // =========================
+                // =====================
+                // CONDITION ALERT
+                // =====================
                 if (alert.alertType === "condition") {
 
                     if (alert.condition === ">" && price > alert.targetPrice)
@@ -178,14 +143,13 @@ const processAlerts = async () => {
                     if (alert.condition === "<" && price < alert.targetPrice)
                         shouldSend = true;
 
-                    if (shouldSend) {
-                        alert.triggered = true; // TERMINATE AFTER HIT
-                    }
+                    if (shouldSend)
+                        alert.triggered = true;
                 }
 
-                // =========================
-                // INTERVAL ALERT (UNCHANGED)
-                // =========================
+                // =====================
+                // INTERVAL ALERT
+                // =====================
                 else if (alert.alertType === "interval") {
 
                     if (!alert.lastTriggeredAt) {
@@ -198,21 +162,20 @@ const processAlerts = async () => {
                             shouldSend = true;
                     }
 
-                    if (shouldSend) {
+                    if (shouldSend)
                         alert.lastTriggeredAt = new Date();
-                    }
                 }
 
-                // =========================
+                // =====================
                 // SEND NOTIFICATION
-                // =========================
+                // =====================
                 if (shouldSend) {
                     try {
                         await admin.messaging().send({
                             token: alert.deviceToken,
                             notification: {
                                 title: "📊 Stock Alert",
-                                body: `${alert.symbol} price: ${price}`
+                                body: `${alert.symbol} → ${price}`
                             }
                         });
 
@@ -236,9 +199,6 @@ const processAlerts = async () => {
     }
 };
 
-// =========================
-// START WORKER
-// =========================
 let isRunning = false;
 
 const safeProcessAlerts = async () => {

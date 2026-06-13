@@ -1,16 +1,14 @@
 const axios = require("axios");
 const { getUpstoxPrice } = require("./upstoxPrice");
 
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
-
 // =========================
-// 🇺🇸 US STOCKS (FINNHUB)
+// 🇺🇸 FINNHUB
 // =========================
 async function getFinnhubPrice(symbol) {
     try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-
-        const res = await axios.get(url, { timeout: 8000 });
+        const res = await axios.get(
+            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_API_KEY}`
+        );
 
         return res.data?.c || null;
     } catch (err) {
@@ -20,34 +18,17 @@ async function getFinnhubPrice(symbol) {
 }
 
 // =========================
-// 🇮🇳 INDIA STOCKS (UPSTOX)
+// 🌍 MAIN ROUTER
 // =========================
-async function getIndianPrice(instrumentKey) {
-    return await getUpstoxPrice(instrumentKey);
-}
+async function getPrice(alert) {
 
-// =========================
-// 🌍 HYBRID ROUTER
-// =========================
-async function getStockPrice(alert) {
-    try {
-        // INDIA → Upstox
-        if (alert.instrumentKey) {
-            console.log("🇮🇳 Upstox:", alert.instrumentKey);
-            return await getIndianPrice(alert.instrumentKey);
-        }
-
-        // USA → Finnhub
-        if (alert.symbol) {
-            console.log("🇺🇸 Finnhub:", alert.symbol);
-            return await getFinnhubPrice(alert.symbol);
-        }
-
-        return null;
-    } catch (err) {
-        console.log("Price service error:", err.message);
-        return null;
+    // 🇮🇳 INDIA → Upstox
+    if (alert.symbol?.endsWith(".NS") || alert.symbol?.endsWith(".BO")) {
+        return await getUpstoxPrice(alert.symbol);
     }
+
+    // 🇺🇸 US → Finnhub
+    return await getFinnhubPrice(alert.symbol);
 }
 
-module.exports = { getStockPrice };
+module.exports = { getPrice };

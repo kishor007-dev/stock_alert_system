@@ -137,6 +137,7 @@ const Alert = require('../models/alert');
 
 // Create Alert
 const { resolveStock } = require("../services/stockResolver");
+const { searchStock } = require("../services/yahooSearch");
 
 router.post("/", async (req, res) => {
     try {
