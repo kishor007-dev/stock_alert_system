@@ -57,7 +57,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/api/search", require("./routes/search"));
-global.yahooHits = 0;
+app.use("/api/alerts", require("./routes/alert"));
 console.log("UPSTOX_API_KEY:", process.env.UPSTOX_API_KEY);
 try {
     admin.initializeApp({

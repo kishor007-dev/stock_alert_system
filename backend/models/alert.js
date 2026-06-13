@@ -78,10 +78,15 @@
 const mongoose = require('mongoose');
 
 const alertSchema = new mongoose.Schema({
-    symbol: { type: String, required: true, uppercase: true },
+    symbol: { type: String},
+     market: {
+        type: String,
+        enum: ["india", "us"],
+        required: true
+    },
     instrumentKey: {
     type: String,
-    required: true
+    default:null
 },
     alertType: { type: String, enum: ['condition', 'interval'], default: 'condition' },
     condition: { type: String, enum: ['>', '<', 'none'], default: 'none' },

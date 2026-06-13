@@ -133,87 +133,52 @@
 const express = require('express');
 const router = express.Router();
 const Alert = require('../models/alert');
-
-// Create Alert
 const { resolveStock } = require("../services/stockResolver");
 const { searchStock } = require("../services/searchStock");
 
+// CREATE ALERT
 router.post("/", async (req, res) => {
     try {
-        const {
-            symbol,
-            alertType,
-            condition,
-            targetPrice,
-            intervalMinutes,
-            deviceToken
-        } = req.body;
+        const { symbol, alertType, condition, targetPrice, intervalMinutes, deviceToken } = req.body;
 
-        if (!symbol || !alertType || !deviceToken) {
-            return res.status(400).json({ error: "Missing fields" });
-        }
-
-        // 🔥 AUTO RESOLVE STOCK
         const resolved = await resolveStock(symbol);
 
         if (!resolved) {
             return res.status(400).json({ error: "Stock not found" });
         }
 
-        const alertData = {
+        const alert = new Alert({
             symbol: resolved.symbol,
             instrumentKey: resolved.instrumentKey || null,
+            market: resolved.market,
             alertType,
-            deviceToken
-        };
-
-        if (alertType === "condition") {
-            alertData.condition = condition;
-            alertData.targetPrice = targetPrice;
-        }
-
-        if (alertType === "interval") {
-            alertData.intervalMinutes = intervalMinutes;
-            alertData.lastTriggeredAt = null;
-        }
-
-        const newAlert = new Alert(alertData);
-        await newAlert.save();
-
-        res.json({
-            message: "Alert created",
-            resolved
+            condition,
+            targetPrice,
+            intervalMinutes,
+            deviceToken,
+            triggered: false
         });
+
+        await alert.save();
+
+        res.json({ message: "Alert created", alert });
 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
-// Cancel Alert
-router.delete('/:id', async (req, res) => {
-    try {
-        await Alert.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Alert cancelled' });
-    } catch (error) {
-        res.status(500).json({ error: 'Server Error' });
-    }
+
+// SEARCH API
+router.get("/search", async (req, res) => {
+    const q = req.query.q;
+    const results = await searchStock(q);
+    res.json(results);
 });
 
-
-router.get('/search', async (req, res) => {
-    try {
-        const { q } = req.query;
-
-        if (!q) return res.json([]);
-
-        const results = await searchStock(q);
-
-        return res.json(results);
-
-    } catch (error) {
-        console.error("SEARCH ERROR:", error.message);
-        return res.json([]);
-    }
+// DELETE ALERT
+router.delete("/:id", async (req, res) => {
+    await Alert.findByIdAndDelete(req.params.id);
+    res.json({ message: "deleted" });
 });
 
 module.exports = router;
