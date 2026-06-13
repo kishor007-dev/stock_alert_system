@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 const cache = new Map();
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
 async function searchStock(query) {
 
@@ -8,32 +9,23 @@ async function searchStock(query) {
     if (cache.has(key)) return cache.get(key);
 
     try {
-        const res = await axios.get(
-            `https://www.nseindia.com/api/search/autocomplete?q=${query}`,
-            {
-                headers: {
-                    "User-Agent": "Mozilla/5.0",
-                    "Accept": "*/*",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Referer": "https://www.nseindia.com"
-                },
-                timeout: 8000
-            }
-        );
+        const url = `https://finnhub.io/api/v1/search?q=${query}&token=${FINNHUB_API_KEY}`;
 
-        const data = res.data?.symbols || [];
+        const res = await axios.get(url, { timeout: 8000 });
 
-        const results = data.slice(0, 5).map(item => ({
-            symbol: item.symbol,
-            name: item.display
-        }));
+        const results = (res.data?.result || [])
+            .slice(0, 10)
+            .map(item => ({
+                symbol: item.symbol,
+                name: item.description
+            }));
 
         cache.set(key, results);
 
         return results;
 
     } catch (err) {
-        console.log("NSE search error:", err.message);
+        console.log("Finnhub search error:", err.message);
         return [];
     }
 }
