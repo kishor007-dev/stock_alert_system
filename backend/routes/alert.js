@@ -168,13 +168,6 @@ router.post("/", async (req, res) => {
     }
 });
 
-// SEARCH API
-router.get("/search", async (req, res) => {
-    const q = req.query.q;
-    const results = await searchStock(q);
-    res.json(results);
-});
-
 // DELETE ALERT
 router.delete("/:id", async (req, res) => {
     await Alert.findByIdAndDelete(req.params.id);

@@ -93,13 +93,87 @@
 // };
 
 // module.exports = { startWorker };
-const Alert = require("./models/alert");
+const axios = require("axios");
 const admin = require("firebase-admin");
-const { getStockPrice } = require("./services/priceService");
+const Alert = require("./models/alert");
+const NodeCache = require("node-cache");
 
+const cache = new NodeCache({ stdTTL: 60 });
+
+// =========================
+// UPSTOX PRICE (INDIA)
+// =========================
+async function getUpstoxPrice(instrumentKey) {
+    try {
+        const res = await axios.get(
+            `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${instrumentKey}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${process.env.UPSTOX_ACCESS_TOKEN}`
+                }
+            }
+        );
+
+        return res.data?.data?.[instrumentKey]?.last_price || null;
+
+    } catch (err) {
+        console.log("Upstox price error:", err.message);
+        return null;
+    }
+}
+
+// =========================
+// YAHOO PRICE (US fallback)
+// =========================
+async function getYahooPrice(symbol) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+
+        const res = await axios.get(url);
+
+        return res.data?.chart?.result?.[0]?.meta?.regularMarketPrice || null;
+
+    } catch (err) {
+        console.log("Yahoo price error:", err.message);
+        return null;
+    }
+}
+
+// =========================
+// PRICE RESOLVER
+// =========================
+async function getStockPrice(alert) {
+
+    const key = alert.instrumentKey || alert.symbol;
+
+    const cached = cache.get(key);
+    if (cached) return cached;
+
+    let price = null;
+
+    if (alert.instrumentKey) {
+        price = await getUpstoxPrice(alert.instrumentKey);
+    } else {
+        price = await getYahooPrice(alert.symbol);
+    }
+
+    if (price != null) {
+        cache.set(key, price);
+    }
+
+    return price;
+}
+
+// =========================
+// WORKER
+// =========================
 const processAlerts = async () => {
+    console.log(`[Worker] Running at ${new Date().toISOString()}`);
 
     const alerts = await Alert.find({ triggered: false });
+    if (!alerts.length) return;
+
+    const now = Date.now();
 
     for (const alert of alerts) {
 
@@ -107,38 +181,69 @@ const processAlerts = async () => {
         if (!price) continue;
 
         let shouldSend = false;
+        let title = "Stock Alert";
+        let body = "";
 
+        // CONDITION
         if (alert.alertType === "condition") {
             if (alert.condition === ">" && price > alert.targetPrice) shouldSend = true;
             if (alert.condition === "<" && price < alert.targetPrice) shouldSend = true;
+
+            title = "🎯 Target Hit";
+            body = `${alert.symbol}: ${price}`;
         }
 
-        if (alert.alertType === "interval") {
-            const now = Date.now();
-            const last = alert.lastTriggeredAt ? new Date(alert.lastTriggeredAt).getTime() : 0;
-
-            if (!last || (now - last) / 60000 >= alert.intervalMinutes) {
-                shouldSend = true;
+        // INTERVAL
+        else if (alert.alertType === "interval") {
+            if (!alert.lastTriggeredAt) shouldSend = true;
+            else {
+                const diff = (now - new Date(alert.lastTriggeredAt).getTime()) / 60000;
+                if (diff >= alert.intervalMinutes) shouldSend = true;
             }
+
+            title = `⏱ Update`;
+            body = `${alert.symbol}: ${price}`;
         }
 
         if (shouldSend) {
-            await admin.messaging().send({
-                token: alert.deviceToken,
-                notification: {
-                    title: "Stock Alert",
-                    body: `${alert.symbol} is now ${price}`
+            try {
+                await admin.messaging().send({
+                    token: alert.deviceToken,
+                    notification: { title, body }
+                });
+
+                if (alert.alertType === "condition") {
+                    alert.triggered = true;
+                } else {
+                    alert.lastTriggeredAt = new Date();
                 }
-            });
 
-            if (alert.alertType === "condition") alert.triggered = true;
-            else alert.lastTriggeredAt = new Date();
+                await alert.save();
 
-            await alert.save();
+                console.log("✅ Sent:", alert.symbol);
+
+            } catch (err) {
+                console.log("FCM error:", err.message);
+            }
         }
     }
 };
 
-setInterval(processAlerts, 60000);
+let running = false;
 
-module.exports = { startWorker: () => processAlerts() };
+const safeProcess = async () => {
+    if (running) return;
+    running = true;
+    try {
+        await processAlerts();
+    } finally {
+        running = false;
+    }
+};
+
+const startWorker = () => {
+    setInterval(safeProcess, 60000);
+    safeProcess();
+};
+
+module.exports = { startWorker };
