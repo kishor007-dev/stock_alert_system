@@ -4,7 +4,7 @@ const cache = new Map();
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
 async function searchStock(query) {
-
+    console.log("SEARCH FUNCTION CALLED:", query);
     const key = query.toLowerCase();
     if (cache.has(key)) return cache.get(key);
 
@@ -29,5 +29,6 @@ async function searchStock(query) {
         return [];
     }
 }
+
 
 module.exports = { searchStock };
