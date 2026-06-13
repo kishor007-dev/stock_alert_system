@@ -56,7 +56,7 @@ const { startWorker } = require('./worker');
 const app = express();
 app.use(cors());
 app.use(express.json());
-
+console.log("UPSTOX_API_KEY:", process.env.UPSTOX_API_KEY);
 try {
     admin.initializeApp({
     credential: admin.credential.cert({
@@ -97,7 +97,7 @@ app.get('/', (req, res) => {
 });
 app.get("/auth/upstox/login", (req, res) => {
     const clientId = process.env.UPSTOX_API_KEY;
-
+    
     const redirectUri =
         "https://stock-alert-system-fctp.onrender.com/auth/upstox/callback";
 
