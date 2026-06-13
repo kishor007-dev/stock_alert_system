@@ -79,6 +79,10 @@ const mongoose = require('mongoose');
 
 const alertSchema = new mongoose.Schema({
     symbol: { type: String, required: true, uppercase: true },
+    instrumentKey: {
+    type: String,
+    required: true
+},
     alertType: { type: String, enum: ['condition', 'interval'], default: 'condition' },
     condition: { type: String, enum: ['>', '<', 'none'], default: 'none' },
     targetPrice: { type: Number, default: null },

@@ -136,44 +136,59 @@ const axios = require('axios');
 const Alert = require('../models/alert');
 
 // Create Alert
-router.post('/', async (req, res) => {
+const { resolveStock } = require("../services/stockResolver");
+
+router.post("/", async (req, res) => {
     try {
-        const { symbol, alertType, condition, targetPrice, intervalMinutes, deviceToken } = req.body;
-        if (!symbol || !alertType || !deviceToken) return res.status(400).json({ error: 'Missing fields' });
+        const {
+            symbol,
+            alertType,
+            condition,
+            targetPrice,
+            intervalMinutes,
+            deviceToken
+        } = req.body;
 
-        const alertData = { symbol, alertType, deviceToken };
+        if (!symbol || !alertType || !deviceToken) {
+            return res.status(400).json({ error: "Missing fields" });
+        }
 
-        if (alertType === 'condition') {
-            if (!condition || !targetPrice) return res.status(400).json({ error: 'Condition/Price required' });
+        // 🔥 AUTO RESOLVE STOCK
+        const resolved = await resolveStock(symbol);
+
+        if (!resolved) {
+            return res.status(400).json({ error: "Stock not found" });
+        }
+
+        const alertData = {
+            symbol: resolved.symbol,
+            instrumentKey: resolved.instrumentKey || null,
+            alertType,
+            deviceToken
+        };
+
+        if (alertType === "condition") {
             alertData.condition = condition;
             alertData.targetPrice = targetPrice;
-        } else if (alertType === 'interval') {
-            if (!intervalMinutes || intervalMinutes < 1) return res.status(400).json({ error: 'Valid minutes required' });
+        }
+
+        if (alertType === "interval") {
             alertData.intervalMinutes = intervalMinutes;
-            alertData.condition = 'none';
-            alertData.lastTriggeredAt = null; // Fire immediately on first pass
+            alertData.lastTriggeredAt = null;
         }
 
         const newAlert = new Alert(alertData);
         await newAlert.save();
-        res.status(201).json({ message: 'Alert created', alert: newAlert });
-    } catch (error) {
-        res.status(500).json({ error: 'Server Error' });
+
+        res.json({
+            message: "Alert created",
+            resolved
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
-
-// List Alerts
-router.get('/', async (req, res) => {
-    try {
-        const { deviceToken } = req.query;
-        if (!deviceToken) return res.status(400).json({ error: 'deviceToken required' });
-        const alerts = await Alert.find({ deviceToken }).sort({ createdAt: -1 });
-        res.json(alerts);
-    } catch (error) {
-        res.status(500).json({ error: 'Server Error' });
-    }
-});
-
 // Cancel Alert
 router.delete('/:id', async (req, res) => {
     try {
