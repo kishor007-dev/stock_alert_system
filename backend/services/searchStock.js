@@ -1,57 +1,56 @@
-const axios = require("axios");
+const stocks = require("../data/stocks");
 
-// simple local fallback (important)
-const localStocks = [
-    { symbol: "RELIANCE.NS", name: "Reliance Industries" },
-    { symbol: "TCS.NS", name: "Tata Consultancy Services" },
-    { symbol: "INFY.NS", name: "Infosys" },
-    { symbol: "HDFCBANK.NS", name: "HDFC Bank" },
-    { symbol: "ICICIBANK.NS", name: "ICICI Bank" },
-];
-
+// simple cache for speed
 const cache = new Map();
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
-async function searchStock(query) {
+// fuzzy score function (Zerodha-style ranking)
+function scoreMatch(query, text) {
+    query = query.toLowerCase();
+    text = text.toLowerCase();
+
+    if (text === query) return 100;
+    if (text.startsWith(query)) return 90;
+    if (text.includes(query)) return 70;
+
+    // fuzzy fallback
+    let score = 0;
+    let qi = 0;
+
+    for (let i = 0; i < text.length && qi < query.length; i++) {
+        if (text[i] === query[qi]) {
+            score += 1;
+            qi++;
+        }
+    }
+
+    return qi === query.length ? score : 0;
+}
+
+function searchStock(query) {
+    if (!query) return [];
 
     const key = query.toLowerCase();
 
     if (cache.has(key)) return cache.get(key);
 
-    let results = [];
+    const results = stocks
+        .map(stock => {
+            const symbolScore = scoreMatch(query, stock.symbol);
+            const nameScore = scoreMatch(query, stock.name);
 
-    try {
-        // ======================
-        // FINNHUB (US + global)
-        // ======================
-        const url = `https://finnhub.io/api/v1/search?q=${query}&token=${FINNHUB_API_KEY}`;
+            return {
+                ...stock,
+                score: Math.max(symbolScore, nameScore)
+            };
+        })
+        .filter(s => s.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+        .map(({ symbol, name }) => ({ symbol, name }));
 
-        const res = await axios.get(url, { timeout: 5000 });
+    cache.set(key, results);
 
-        const finnhubResults = (res.data?.result || []).map(r => ({
-            symbol: r.symbol,
-            name: r.description
-        }));
-
-        results = [...finnhubResults];
-
-    } catch (err) {
-        console.log("Finnhub search error:", err.message);
-    }
-
-    // ======================
-    // LOCAL NSE FALLBACK
-    // ======================
-    const local = localStocks.filter(s =>
-        s.symbol.toLowerCase().includes(query.toLowerCase()) ||
-        s.name.toLowerCase().includes(query.toLowerCase())
-    );
-
-    results = [...results, ...local];
-
-    cache.set(key, results.slice(0, 10));
-
-    return results.slice(0, 10);
+    return results;
 }
 
 module.exports = { searchStock };

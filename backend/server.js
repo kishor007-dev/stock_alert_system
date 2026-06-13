@@ -56,6 +56,7 @@ const { startWorker } = require('./worker');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use("/api/search", require("./routes/search"));
 global.yahooHits = 0;
 console.log("UPSTOX_API_KEY:", process.env.UPSTOX_API_KEY);
 try {
@@ -150,4 +151,3 @@ app.get("/auth/upstox/callback", async (req, res) => {
         res.send("Token generation failed");
     }
 });
-app.use("/api/search", require("./routes/search"));
