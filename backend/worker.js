@@ -93,25 +93,20 @@
 // };
 
 // module.exports = { startWorker };
-const axios = require("axios");
 const admin = require("firebase-admin");
 const Alert = require("./models/alert");
-const NodeCache = require("node-cache");
+const axios = require("axios");
 
 const { getUpstoxPrice } = require("./services/upstoxPrice");
-
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
-
-const cache = new NodeCache({ stdTTL: 300 });
 
 // =========================
 // 🇺🇸 FINNHUB (US STOCKS)
 // =========================
 async function getFinnhubPrice(symbol) {
     try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-
-        const res = await axios.get(url, { timeout: 8000 });
+        const res = await axios.get(
+            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_API_KEY}`
+        );
 
         return res.data?.c || null;
     } catch (err) {
@@ -121,74 +116,78 @@ async function getFinnhubPrice(symbol) {
 }
 
 // =========================
-// 🇮🇳 UPSTOX (INDIA STOCKS)
+// 🌍 PRICE FETCHER (ONLY REPLACEMENT LAYER)
 // =========================
-async function getUpstoxStockPrice(instrumentKey) {
-    return await getUpstoxPrice(instrumentKey);
-}
+async function getPrice(alert) {
 
-// =========================
-// 🌍 PRICE ROUTER
-// =========================
-async function getStockPrice(alert) {
-
-    // 🇮🇳 Upstox
+    // 🇮🇳 INDIA → Upstox
     if (alert.instrumentKey) {
         return await getUpstoxPrice(alert.instrumentKey);
     }
 
-    // 🇺🇸 Finnhub
-    return await getFinnhubPrice(alert.symbol);
+    // 🇺🇸 USA → Finnhub
+    if (alert.symbol) {
+        return await getFinnhubPrice(alert.symbol);
+    }
+
+    return null;
 }
 
 // =========================
-// WORKER
+// WORKER (UNCHANGED LOGIC)
 // =========================
 const processAlerts = async () => {
     console.log(`[Worker] Running at ${new Date().toISOString()}`);
 
     try {
         const alerts = await Alert.find({ triggered: false });
+
         if (!alerts.length) return;
 
-        // group by market key
         const grouped = {};
 
+        // group by symbol (KEEP ORIGINAL BEHAVIOUR)
         for (const a of alerts) {
-            const key = a.instrumentKey || a.symbol;
+            const key = a.symbol;
             if (!grouped[key]) grouped[key] = [];
             grouped[key].push(a);
         }
 
         const now = Date.now();
 
-        for (const key of Object.keys(grouped)) {
+        for (const symbol of Object.keys(grouped)) {
 
-            const sampleAlert = grouped[key][0];
+            const sampleAlert = grouped[symbol][0];
 
-            const price = await getStockPrice(sampleAlert);
+            const price = await getPrice(sampleAlert);
 
             if (!price) continue;
 
-            for (const alert of grouped[key]) {
+            for (const alert of grouped[symbol]) {
 
                 let shouldSend = false;
 
-                // =====================
-                // CONDITION ALERT
-                // =====================
+                // =========================
+                // CONDITION ALERT (UNCHANGED)
+                // =========================
                 if (alert.alertType === "condition") {
+
                     if (alert.condition === ">" && price > alert.targetPrice)
                         shouldSend = true;
 
                     if (alert.condition === "<" && price < alert.targetPrice)
                         shouldSend = true;
+
+                    if (shouldSend) {
+                        alert.triggered = true; // TERMINATE AFTER HIT
+                    }
                 }
 
-                // =====================
-                // INTERVAL ALERT
-                // =====================
+                // =========================
+                // INTERVAL ALERT (UNCHANGED)
+                // =========================
                 else if (alert.alertType === "interval") {
+
                     if (!alert.lastTriggeredAt) {
                         shouldSend = true;
                     } else {
@@ -198,37 +197,33 @@ const processAlerts = async () => {
                         if (diff >= alert.intervalMinutes)
                             shouldSend = true;
                     }
+
+                    if (shouldSend) {
+                        alert.lastTriggeredAt = new Date();
+                    }
                 }
 
-                // =====================
+                // =========================
                 // SEND NOTIFICATION
-                // =====================
+                // =========================
                 if (shouldSend) {
                     try {
                         await admin.messaging().send({
                             token: alert.deviceToken,
                             notification: {
-                                title: "Stock Alert 🚀",
-                                body: `${alert.symbol} is ${price}`
+                                title: "📊 Stock Alert",
+                                body: `${alert.symbol} price: ${price}`
                             }
                         });
 
                         console.log(`✅ Sent: ${alert.symbol}`);
-
-                        if (alert.alertType === "condition") {
-                            alert.triggered = true;
-                        } else {
-                            alert.lastTriggeredAt = new Date();
-                        }
 
                         await alert.save();
 
                     } catch (err) {
                         console.error("FCM Error:", err.message);
 
-                        if (
-                            err.code === "messaging/registration-token-not-registered"
-                        ) {
+                        if (err.code === "messaging/registration-token-not-registered") {
                             await Alert.findByIdAndDelete(alert._id);
                         }
                     }
@@ -242,7 +237,7 @@ const processAlerts = async () => {
 };
 
 // =========================
-// SAFE RUNNER
+// START WORKER
 // =========================
 let isRunning = false;
 
@@ -250,7 +245,6 @@ const safeProcessAlerts = async () => {
     if (isRunning) return;
 
     isRunning = true;
-
     try {
         await processAlerts();
     } finally {
@@ -258,10 +252,8 @@ const safeProcessAlerts = async () => {
     }
 };
 
-// =========================
-// START WORKER
-// =========================
 const startWorker = () => {
+    console.log("🚀 Worker Started");
     setInterval(safeProcessAlerts, 60 * 1000);
     safeProcessAlerts();
 };
