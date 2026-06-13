@@ -120,7 +120,7 @@ const processAlerts = async () => {
 
         for (const symbol of Object.keys(grouped)) {
 
-            await sleep(500);
+            await sleep(1500);
 
             const sampleAlert = grouped[symbol][0];
 

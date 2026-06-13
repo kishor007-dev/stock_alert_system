@@ -1,21 +1,47 @@
 const axios = require("axios");
 
+const cache = new Map();
+const CACHE_TTL = 1000 * 60 * 10; // 10 min
+
 async function searchStock(query) {
+
+    const key = query.toLowerCase();
+
+    // =====================
+    // CACHE HIT
+    // =====================
+    const cached = cache.get(key);
+    if (cached && (Date.now() - cached.time < CACHE_TTL)) {
+        return cached.data;
+    }
+
     try {
-        const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${query}`;
+        const res = await axios.get(
+            `https://query1.finance.yahoo.com/v1/finance/search?q=${query}`,
+            {
+                timeout: 5000,
+                headers: {
+                    "User-Agent": "Mozilla/5.0"
+                }
+            }
+        );
 
-        const res = await axios.get(url);
+        const result = (res.data?.quotes || []).slice(0, 5);
 
-        const quotes = res.data?.quotes || [];
+        cache.set(key, {
+            data: result,
+            time: Date.now()
+        });
 
-        return quotes.slice(0, 5).map(q => ({
-            symbol: q.symbol,
-            name: q.shortname || q.longname
-        }));
+        return result;
 
     } catch (err) {
         console.log("Yahoo search error:", err.message);
-        return [];
+
+        // =====================
+        // FALLBACK (IMPORTANT)
+        // =====================
+        return cache.get(key)?.data || [];
     }
 }
 
