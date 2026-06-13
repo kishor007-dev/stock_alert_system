@@ -96,11 +96,16 @@ app.get('/', (req, res) => {
     });
 });
 app.get("/auth/upstox/login", (req, res) => {
+    const clientId = process.env.UPSTOX_API_KEY;
+
+    const redirectUri =
+        "https://stock-alert-system-fctp.onrender.com/auth/upstox/callback";
+
     const url =
         `https://api.upstox.com/v2/login/authorization/dialog` +
         `?response_type=code` +
-        `&client_id=${process.env.UPSTOX_API_KEY}` +
-        `&redirect_uri=https://stock-alert-system-fctp.onrender.com/auth/upstox/callback`;
+        `&client_id=${clientId}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
     res.redirect(url);
 });
