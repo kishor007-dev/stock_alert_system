@@ -132,12 +132,11 @@
 // module.exports = router;
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const Alert = require('../models/alert');
 
 // Create Alert
 const { resolveStock } = require("../services/stockResolver");
-const { searchStock } = require("../services/yahooSearch");
+const { searchStock } = require("../services/searchStock");
 
 router.post("/", async (req, res) => {
     try {
@@ -200,30 +199,16 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// Search Proxy (Bypass CORS)
+
 router.get('/search', async (req, res) => {
     try {
         const { q } = req.query;
 
         if (!q) return res.json([]);
 
-        const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${q}&quotesCount=5`;
+        const results = await searchStock(q);
 
-        const response = await axios.get(url, {
-            headers: {
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "application/json"
-            },
-            timeout: 5000
-        });
-
-        const data = response?.data;
-
-        if (!data || !data.quotes) {
-            return res.json([]);
-        }
-
-        return res.json(data.quotes);
+        return res.json(results);
 
     } catch (error) {
         console.error("SEARCH ERROR:", error.message);

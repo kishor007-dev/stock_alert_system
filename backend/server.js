@@ -150,3 +150,4 @@ app.get("/auth/upstox/callback", async (req, res) => {
         res.send("Token generation failed");
     }
 });
+app.use("/api/search", require("./routes/search"));
