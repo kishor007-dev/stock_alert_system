@@ -240,7 +240,7 @@
 //     ui.formMessage.className = `message ${type}`; 
 //     setTimeout(() => { ui.formMessage.textContent = ''; }, 3000); 
 // } 
- const API_BASE_URL = 'https://stock-alert-system-fctp.onrender.com/api';//https://localhost:3000/api' // Change this when running on localhost
+ const API_BASE_URL = 'https://localhost:3000/api';//'https://stock-alert-system-fctp.onrender.com/api'; // Change this when running on localhost
 
 // TODO: Replace with your actual Firebase Web Config
 const firebaseConfig = {

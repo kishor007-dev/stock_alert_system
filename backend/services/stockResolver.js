@@ -56,51 +56,24 @@
 // }
 
 // module.exports = { resolveStock };
-const axios = require("axios");
+const Instrument = require("../models/Instrument");
 
-// 🇮🇳 UPSTOX RESOLVE
-async function resolveIndianStock(query) {
-    try {
-        const res = await axios.get(
-            `https://api.upstox.com/v2/search/instruments?query=${query}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${process.env.UPSTOX_ACCESS_TOKEN}`
-                }
-            }
-        );
-
-        const data = res.data?.data || [];
-        if (!data.length) return null;
-
-        const best = data[0];
-
-        return {
-            market: "india",
-            symbol: best.trading_symbol,
-            instrumentKey: best.instrument_key
-        };
-
-    } catch (err) {
-        console.log("Upstox search error:", err.message);
-        return null;
-    }
-}
-
-// 🌍 MAIN RESOLVER
 async function resolveStock(symbol) {
+    const stock = await Instrument.findOne({ symbol });
 
-    const clean = symbol.replace(".NS", "").replace(".BO", "");
-
-    // India detection
-    if (symbol.includes(".NS") || symbol.includes(".BO")) {
-        return await resolveIndianStock(clean);
+    if (stock) {
+        return {
+            symbol: stock.symbol,
+            region: "IN",
+            instrumentKey: stock.instrumentKey
+        };
     }
 
-    // US stock (no instrumentKey)
+    // US fallback
     return {
-        market: "us",
-        symbol
+        symbol,
+        region: "US",
+        instrumentKey: null
     };
 }
 

@@ -75,27 +75,23 @@
 // });
 
 // module.exports = mongoose.model('Alert', alertSchema);
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const alertSchema = new mongoose.Schema({
-    symbol: { type: String},
-     market: {
-        type: String,
-        enum: ["india", "us"],
-        required: true
-    },
-    instrumentKey: {
-    type: String,
-    default:null
-},
-    alertType: { type: String, enum: ['condition', 'interval'], default: 'condition' },
-    condition: { type: String, enum: ['>', '<', 'none'], default: 'none' },
-    targetPrice: { type: Number, default: null },
-    intervalMinutes: { type: Number, default: null },
+    symbol: String,
+    region: String, // IN / US
+
+    instrumentKey: String, // Upstox only
+    finnhubSymbol: String, // US only
+
+    alertType: String,
+    condition: String,
+    targetPrice: Number,
+
+    deviceToken: String,
     triggered: { type: Boolean, default: false },
-    lastTriggeredAt: { type: Date, default: null },
-    deviceToken: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now }
+
+    lastTriggeredAt: Date
 });
 
-module.exports = mongoose.model('Alert', alertSchema);
+module.exports = mongoose.model("Alert", alertSchema);
