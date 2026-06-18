@@ -1,80 +1,25 @@
-// const axios = require("axios");
 
-// // =========================
-// // 🇮🇳 UPSTOX SEARCH (INDIA)
-// // =========================
-// async function resolveIndianStock(query) {
-//     try {
-//         const res = await axios.get(
-//             `https://api.upstox.com/v2/search/instruments?query=${query}`,
-//             {
-//                 headers: {
-//                     Authorization: `Bearer ${process.env.UPSTOX_ACCESS_TOKEN}`
-//                 }
-//             }
-//         );
-
-//         const data = res.data?.data || [];
-
-//         // return best match
-//         return data[0] || null;
-
-//     } catch (err) {
-//         console.log("Upstox search error:", err.message);
-//         return null;
-//     }
-// }
-
-// // =========================
-// // 🌍 MAIN RESOLVER
-// // =========================
-// async function resolveStock(symbol) {
-
-//     // 🇮🇳 India stocks (.NS / .BO OR raw name)
-//     if (symbol.endsWith(".NS") || symbol.endsWith(".BO") || !symbol.includes(" ")) {
-
-//         const clean = symbol.replace(".NS", "").replace(".BO", "");
-
-//         const result = await resolveIndianStock(clean);
-
-//         if (result) {
-//             return {
-//                 market: "india",
-//                 symbol: result.trading_symbol,
-//                 instrumentKey: result.instrument_key
-//             };
-//         }
-
-//         return null;
-//     }
-
-//     // 🇺🇸 US stocks → direct
-//     return {
-//         market: "us",
-//         symbol
-//     };
-// }
-
-// module.exports = { resolveStock };
 const Instrument = require("../models/Instrument");
 
-async function resolveStock(symbol) {
-    const stock = await Instrument.findOne({ symbol });
+// ==========================================
+// MASTER DATABASE GATEKEEPER
+// Validates symbols and fetches routing keys
+// ==========================================
+const resolveInstrument = async (symbol) => {
+    // Force uppercase to match the normalized data from our seed script
+    const cleanSymbol = symbol.toUpperCase().trim();
+    
+    const instrument = await Instrument.findOne({ symbol: cleanSymbol });
 
-    if (stock) {
-        return {
-            symbol: stock.symbol,
-            region: "IN",
-            instrumentKey: stock.instrumentKey
-        };
+    if (!instrument) {
+        // If it's not in our master DB, we reject it immediately.
+        // This protects your external APIs from invalid queries.
+        throw new Error(`Instrument ${cleanSymbol} not found in master database.`);
     }
 
-    // US fallback
-    return {
-        symbol,
-        region: "US",
-        instrumentKey: null
-    };
-}
+    // Return the entire verified instrument document.
+    // This naturally contains the correct 'region' and 'instrumentKey' mapped during seeding.
+    return instrument;
+};
 
-module.exports = { resolveStock };
+module.exports = { resolveInstrument };

@@ -1,35 +1,32 @@
-const axios = require("axios");
+const Instrument = require('../models/Instrument');
 
-async function getUpstoxPrice(instrumentKey) {
+// ==========================================
+// MONGODB HYBRID SEARCH ENGINE
+// Powers the frontend autocomplete dropdown
+// ==========================================
+const searchStocks = async (query) => {
+    // Safety net: don't execute heavy DB queries for single characters
+    if (!query || query.length < 2) return [];
+
     try {
-        const res = await axios.get(
-            `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${instrumentKey}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${process.env.UPSTOX_ACCESS_TOKEN}`
-                }
-            }
-        );
+        // Use a case-insensitive regex for partial matching (e.g., typing "REL" finds "RELIANCE")
+        const regex = new RegExp(query, 'i');
 
-        const data = res.data?.data;
-        const key = Object.keys(data)[0];
+        const results = await Instrument.find({
+            $or: [
+                { symbol: regex },
+                { shortname: regex } // Searching against the shortname we mapped in the seed script
+            ]
+        })
+        .limit(10) // Limit to 10 to keep the UI dropdown snappy and avoid overwhelming the DOM
+        .select('symbol shortname -_id') // Project only what the frontend needs; strip the heavy Mongo _id
+        .lean(); // .lean() returns plain JSON instead of heavy Mongoose documents, boosting read speed
 
-        return data[key]?.last_price || null;
-    } catch (err) {
-        return null;
+        return results;
+    } catch (error) {
+        console.error("Database Search Error:", error.message);
+        throw new Error("Failed to execute instrument search");
     }
-}
+};
 
-async function getFinnhubPrice(symbol) {
-    try {
-        const res = await axios.get(
-            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_API_KEY}`
-        );
-
-        return res.data?.c || null; // current price
-    } catch (err) {
-        return null;
-    }
-}
-
-module.exports = { getUpstoxPrice, getFinnhubPrice };
+module.exports = { searchStocks };
