@@ -32,6 +32,6 @@ messaging.onBackgroundMessage((payload) => {
     };
 
     // Instructs the browser to trigger the native OS push notification
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    // self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
