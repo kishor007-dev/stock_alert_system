@@ -134,7 +134,7 @@ npm install
 Create a `.env` file in the backend folder:
 ```env
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/stock-alert-system
+MONGODB_URI=your_mongodb_atlas_connection_string
 
 # External APIs
 UPSTOX_ACCESS_TOKEN=your_upstox_analytics_token
