@@ -189,11 +189,26 @@ if ('serviceWorker' in navigator) {
 
 ui.btnEnableNotif.addEventListener('click', async () => {
     try {
+        // 1. Check if Apple (or the current browser) blocks the Notification object
+        if (!('Notification' in window)) {
+            console.warn("Notifications are blocked or unsupported on this device.");
+            alert("Push notifications are not natively supported on this browser (iOS Safari). The app will load, but you may not receive push alerts unless added to your Home Screen.");
+            
+            // Bypass the Firebase token generation and force the UI to load anyway
+            ui.setupView.classList.add('hidden');
+            ui.appView.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                startGlobeOnce();
+            });
+            return; // Exit the function early so it doesn't crash on the lines below
+        }
+
+        // 2. Safe to proceed for Windows / Android / Mac
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
             const registration = await navigator.serviceWorker.ready;
             const token = await messaging.getToken({ 
-                vapidKey: "BOwFsqRlLNsaW2cNZT60-ptrYAGX4gHzh297eg3h8KXQSqj8R5fUDtfZpB27pxN4zan61b5divIcXye9nTbdGKM", // <-- Paste your VAPID Key here
+                vapidKey: "BOwFsqRlLNsaW2cNZT60-ptrYAGX4gHzh297eg3h8KXQSqj8R5fUDtfZpB27pxN4zan61b5divIcXye9nTbdGKM", 
                 serviceWorkerRegistration: registration 
             });
             
@@ -209,9 +224,15 @@ ui.btnEnableNotif.addEventListener('click', async () => {
 
                 fetchAlerts();
             }
+        } else {
+            alert("Please allow notification permissions to receive stock alerts.");
         }
-    } catch (error) { console.error('Token Error:', error); }
+    } catch (error) { 
+        console.error('System Setup Error:', error); 
+        alert("Setup encountered an error. Check the console for details.");
+    }
 });
+
 
 messaging.onMessage((payload) => {
     fetchAlerts(); 
